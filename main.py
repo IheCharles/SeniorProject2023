@@ -1,15 +1,13 @@
 import os
-os.environ["OPENAI_API_KEY"] = "YOUR_API_KEY_HERE"
 from langchain.document_loaders import DirectoryLoader, TextLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.embeddings import SentenceTransformerEmbeddings
 from langchain.vectorstores import Chroma
-from langchain.llms import OpenAI
-from langchain.chat_models import ChatOpenAI
 from langchain.prompts import PromptTemplate
 from langchain.chains import LLMChain
 from langchain.chains.question_answering import load_qa_chain
 from langchain.memory import ConversationBufferMemory
+from langchain_community.llms import Ollama
 from ragas import evaluate
 from datasets import Dataset
 from ragas.llms import LangchainLLM
@@ -33,7 +31,9 @@ if not os.path.exists("db"):
     db.persist()
 
 db = Chroma(persist_directory="db", embedding_function=default_ef)
-gpt_turbo = ChatOpenAI(temperature=0.3, model_name='gpt-3.5-turbo-16k')
+# gpt_turbo = ChatOpenAI(temperature=0.3, model_name='gpt-3.5-turbo-16k')
+
+llm = Ollama(model="neural-chat")
 
 templateOne = """Scenario:
 You are a Vanguard helper clerk assisting a user with their Vanguard questions.
@@ -47,7 +47,7 @@ Question:
 What actions would you suggest to the customer based on their message?"""
 
 promptOne = PromptTemplate(input_variables=["text"], template=templateOne)
-chainOne = LLMChain(llm=gpt_turbo, verbose=False,prompt= promptOne)
+chainOne = LLMChain(llm=llm, verbose=False,prompt= promptOne)
 
 templateTwo = """You are a customer support specialist chatbot helping Vanguard clients with their questions while browsing the Vanguard website.
 Vanguard is an investment firm.
@@ -68,7 +68,7 @@ promptTwo = PromptTemplate(
     template=templateTwo
 )
 memory = ConversationBufferMemory(memory_key="chat_history", input_key="question")
-chainTwo = load_qa_chain(gpt_turbo, chain_type="stuff", memory=memory, verbose=False, prompt=promptTwo)
+chainTwo = load_qa_chain(llm, chain_type="stuff", memory=memory, verbose=False, prompt=promptTwo)
 
 
 templateThree = """Scenario:
@@ -84,7 +84,7 @@ Human: {text}
 Vanguard Chatbot:"""
 
 promptThree = PromptTemplate(input_variables=["text",'chat_history'], template=templateThree)
-chainThree = LLMChain(llm=gpt_turbo, prompt= promptThree)
+chainThree = LLMChain(llm=llm, prompt= promptThree)
 def create_eval_data_set():
     # Initialize a dictionary to hold data samples
     data_samples = {
@@ -170,7 +170,7 @@ def chat(query,EvaluationToggle=True):
 
 
 def main():
-    EvaluationToggle = True
+    EvaluationToggle = False
     # toggle between chatting and evaluation
     if EvaluationToggle:
         # Create evaluation dataset if it doesn't exist
